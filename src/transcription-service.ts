@@ -1,17 +1,22 @@
-// @ts-nocheck
-const EventEmitter = require('events');
-const Speech = require('@google-cloud/speech');
+import { Writable } from 'stream';
+import EventEmitter from 'events';
+import Speech from '@google-cloud/speech';
+import { google } from '@google-cloud/speech/build/protos/protos';
+
 const speech = new Speech.SpeechClient();
 
 class TranscriptionService extends EventEmitter {
+  stream: Writable | null;
+  streamCreatedAt: Date | null;
+
   constructor() {
     super();
     this.stream = null;
     this.streamCreatedAt = null;
   }
 
-  send(payload) {
-    this.getStream().write(payload);
+  send(payload: any) {
+    this.getStream()?.write(payload);
   }
 
   close() {
@@ -21,13 +26,11 @@ class TranscriptionService extends EventEmitter {
   }
 
   newStreamRequired() {
-    if (!this.stream) {
-      return true;
-    } else {
-      const now = new Date();
-      const timeSinceStreamCreated = now - this.streamCreatedAt;
-      return timeSinceStreamCreated / 1000 > 60;
-    }
+    if (!this.stream || !this.streamCreatedAt) return true;
+
+    const now = new Date();
+    const timeSinceStreamCreated = now.getTime() - this.streamCreatedAt.getTime();
+    return timeSinceStreamCreated / 1000 > 60;
   }
 
   getStream() {
@@ -36,7 +39,7 @@ class TranscriptionService extends EventEmitter {
         this.stream.destroy();
       }
 
-      var request = {
+      const request: google.cloud.speech.v1p1beta1.IStreamingRecognitionConfig = {
         config: {
           encoding: 'MULAW',
           sampleRateHertz: 8000,
