@@ -1,0 +1,4 @@
+<Response>
+  <Say language="ja-JP" voice="Polly.Mizuki">ようこそ</Say>
+  <Play>https://de94a332f8bc.ngrok.io/mp3/CA0cf4b3d91d9e3c5d0f14bfa151149957.mp3</Play>
+</Response>
