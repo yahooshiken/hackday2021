@@ -87,6 +87,13 @@ class MediaStreamHandler {
     connection.on('close', this.close.bind(this));
   }
 
+  playAudio(fileName: string) {
+    const buffer = fs.readFileSync(path.join(__dirname, '../public/mp3', fileName));
+    const payload = new Buffer(buffer).toString('base64');
+    const message = { event: 'media', media: { payload }, streamSid: this.streamSid };
+    this.send(JSON.stringify(message));
+  }
+
   send(message: string) {
     this.connection.sendUTF(message);
   }
@@ -104,15 +111,23 @@ class MediaStreamHandler {
       const { track } = data.media;
       if (this.trackHandlers[track] === undefined) {
         const service = new TranscriptionService();
+        let flag = { '1': false, '2': false, '3': false };
         service.on('transcription', (transcription) => {
+          this.streamSid = data.streamSid;
           log(`Transcription (${track}): ${transcription}`);
-          if (transcription?.includes('お願い')) {
-            const buffer = fs.readFileSync(path.join(__dirname, '../public/mp3', 'hoge.wav'));
-            const payload = new Buffer(buffer).toString('base64');
-            this.streamSid = data.streamSid;
-            const message = { event: 'media', media: { payload }, streamSid: this.streamSid };
-            this.send(JSON.stringify(message));
+
+          if (transcription?.includes('お願い') && flag[1] === false) {
+            this.playAudio('2.wav');
+            axios.get(ENDPOINT.startRoomba);
+            flag[1] = true;
+          } else if (transcription?.includes('そうだね') && flag[2] === false) {
+            this.playAudio('3.wav');
             axios.get(ENDPOINT.onCirculator);
+            flag[2] = true;
+          } else if (transcription?.includes('よろしく') && flag[3] === false) {
+            this.playAudio('4.wav');
+            axios.get(ENDPOINT.pressSwitch);
+            flag[3] = true;
           }
         });
         this.trackHandlers[track] = service;
@@ -126,6 +141,8 @@ class MediaStreamHandler {
 
   close() {
     log('Media WS: closed');
+    axios.get(ENDPOINT.offCirculator);
+    axios.get(ENDPOINT.stopRoomba);
 
     for (let track of Object.keys(this.trackHandlers)) {
       log(`Closing ${track} handler`);

@@ -30,7 +30,7 @@ class TranscriptionService extends EventEmitter {
 
     const now = new Date();
     const timeSinceStreamCreated = now.getTime() - this.streamCreatedAt.getTime();
-    return timeSinceStreamCreated / 1000 > 60;
+    return timeSinceStreamCreated / 1000 > 5;
   }
 
   getStream() {
