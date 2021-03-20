@@ -5,7 +5,8 @@ import util from 'util';
 import path from 'path';
 import axios from 'axios';
 
-import textToSpeech, { protos } from '@google-cloud/text-to-speech';
+import textToSpeech, { protos as ttsProtos } from '@google-cloud/text-to-speech';
+
 import twilio, { twiml } from 'twilio';
 import 'dotenv/config';
 import { CallListInstanceCreateOptions } from 'twilio/lib/rest/api/v2010/account/call';
@@ -52,17 +53,29 @@ app.get('/outgoing', async (req, res) => {
   }
 });
 
+const recognizeSpeech = async () => {
+  const speechClient = new speech.SpeechClient();
+  const audio = {};
+  const request = {};
+  const [response] = await speechClient.recognize(request);
+  const transcription = response.results
+    ?.map((result) => result.alternatives[0].transcript)
+    .join('\n');
+
+  return transcription;
+};
+
 app.post('/incoming', async (req, res) => {
   try {
-    const client = new textToSpeech.TextToSpeechClient();
+    const ttsClient = new textToSpeech.TextToSpeechClient();
     const text = 'お電話ありがとうございます';
-    const request: protos.google.cloud.texttospeech.v1.ISynthesizeSpeechRequest = {
+    const request: ttsProtos.google.cloud.texttospeech.v1.ISynthesizeSpeechRequest = {
       input: { text },
       voice: { languageCode: 'ja-JP', ssmlGender: 'FEMALE' },
       audioConfig: { audioEncoding: 'MP3' },
     };
 
-    const [response] = await client.synthesizeSpeech(request);
+    const [response] = await ttsClient.synthesizeSpeech(request);
     const outputFileName = req.body.CallSid + '.mp3';
 
     const writeFile = util.promisify(fs.writeFile);
