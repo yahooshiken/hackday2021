@@ -56,6 +56,7 @@ wsServer.on('connect', (connection: connection) => {
 
 class MediaStreamHandler {
   constructor(connection: connection) {
+    this.transcription = '';
     this.metaData = null;
     this.trackHandlers = {};
     connection.on('message', this.processMessage.bind(this));
@@ -71,14 +72,20 @@ class MediaStreamHandler {
       if (data.event !== 'media') {
         return;
       }
-      const track = data.media.track;
+
+      const { track } = data.media;
+
       if (this.trackHandlers[track] === undefined) {
         const service = new TranscriptionService();
         service.on('transcription', (transcription) => {
           log(`Transcription (${track}): ${transcription}`);
+          if (transcription?.includes('こんにちは')) {
+            axios.get(ENDPOINT.onCirculator);
+          }
         });
         this.trackHandlers[track] = service;
       }
+
       this.trackHandlers[track].send(data.media.payload);
     } else if (message.type === 'binary') {
       log('Media WS: binary message received (not supported)');

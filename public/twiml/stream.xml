@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Start>
-    <Stream url="wss://9140046ced74.ngrok.io/"></Stream>
+    <Stream url="wss://9140046ced74.ngrok.io/">
+      <Parameter name="FirstName" value="Jane" />
+      <Parameter name="LastName" value="Doe" />
+    </Stream>
   </Start>
-  <Pause length="40"/>
+  <Say language="ja-JP" voice="Polly.Mizuki">ようこそ</Say>
+  <Pause length="40" />
 </Response>
 
