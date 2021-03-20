@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play>https://a7f06354a065.ngrok.io/mp3/HackdayCommand1.mp3</Play>
+  <Play>https://7c801d69400a.ngrok.io/mp3/HackdayCommand1.mp3</Play>
   <Connect>
-    <Stream url="wss://a7f06354a065.ngrok.io/audiostream"/>
+    <Stream url="wss://7c801d69400a.ngrok.io/audiostream"/>
   </Connect>
   <Pause length="30" />
 </Response>

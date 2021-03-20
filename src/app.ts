@@ -12,10 +12,12 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
+// App routes
 app.use(homeRoutes);
 app.use(outgoingRoutes);
 app.use(twimlRoutes);
 
+// Create http/websocket server
 const httpServer = http.createServer(app);
 const wsServer = new WebSocketServer({ httpServer, autoAcceptConnections: true });
 

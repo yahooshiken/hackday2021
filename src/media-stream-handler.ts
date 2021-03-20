@@ -46,7 +46,7 @@ class MediaStreamHandler {
   }
 
   playAudio(fileName: string) {
-    const buffer = fs.readFileSync(path.join(__dirname, '../public/mp3', fileName));
+    const buffer = fs.readFileSync(path.join(process.cwd(), 'public/mp3', fileName));
     const payload = new Buffer(buffer).toString('base64');
     const message = { event: 'media', media: { payload }, streamSid: this.streamSid };
     this.send(JSON.stringify(message));
