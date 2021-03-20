@@ -1,11 +1,10 @@
-// @ts-nocheck
 import express from 'express';
 import bodyParser from 'body-parser';
 import fs from 'fs';
 import http from 'http';
 import path from 'path';
 import axios from 'axios';
-import { connection, server as WebSocketServer } from 'websocket';
+import { connection, IMessage, server as WebSocketServer } from 'websocket';
 
 import twilio, { twiml } from 'twilio';
 import 'dotenv/config';
@@ -45,16 +44,25 @@ app.post('/twiml', (req, res) => {
   readStream.pipe(res);
 });
 
+app.post('/twiml/*.xml', (req, res) => {
+  const filename = req.path;
+  res.contentType('application/xml');
+  res.sendFile(path.join(__dirname, '../public', filename));
+});
+
 const httpServer = http.createServer(app);
 const wsServer = new WebSocketServer({ httpServer, autoAcceptConnections: true });
 
-interface Message {
-  type: string;
-  utf8Data: string;
+interface StartMetaData {
+  accountSid: string;
+  streamSid: string;
+  callSid: string;
+  tracks: string[];
+  mediaFormat: { encoding: string; sampleRate: number; channels: number };
 }
 
 interface Data {
-  event: string;
+  event: 'start' | 'media';
   sequenceNumber: string;
   media: {
     track: string;
@@ -62,6 +70,7 @@ interface Data {
     timestamp: string;
     payload: string;
   };
+  start: StartMetaData;
   streamSid: string;
 }
 
@@ -72,7 +81,7 @@ wsServer.on('connect', (connection: connection) => {
 
 class MediaStreamHandler {
   transcription: string;
-  metaData: null;
+  metaData: StartMetaData | null;
   trackHandlers: any;
   connection: connection;
   streamSid: string;
@@ -98,9 +107,9 @@ class MediaStreamHandler {
     this.connection.sendUTF(message);
   }
 
-  processMessage(message: Message) {
+  processMessage(message: IMessage) {
     if (message.type === 'utf8') {
-      const data: Data = JSON.parse(message.utf8Data);
+      const data: Data = JSON.parse(message.utf8Data || '{}');
       if (data.event === 'start') {
         this.metaData = data.start;
       }
@@ -153,14 +162,13 @@ class MediaStreamHandler {
 
 app.get('/outgoing', async (req, res) => {
   const callOption: CallListInstanceCreateOptions = {
-    url: `${baseUrl}/twiml/test.xml`,
+    url: `${baseUrl}/twiml/stream.xml`,
     from: '+15107571562',
     to: '+818036686519',
   };
-  18;
+
   try {
     const call = await twilioClient.calls.create(callOption);
-    console.log(call);
     res.send('Hello');
   } catch (error) {
     console.log(error);
