@@ -65,4 +65,4 @@ class TranscriptionService extends EventEmitter {
   }
 }
 
-module.exports = TranscriptionService;
+export default TranscriptionService;

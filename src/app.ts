@@ -1,23 +1,18 @@
 // @ts-nocheck
-
 import express from 'express';
 import bodyParser from 'body-parser';
 import fs from 'fs';
-import util from 'util';
 import http from 'http';
 import path from 'path';
 import axios from 'axios';
-import HttpDispatcher from 'httpdispatcher';
 import { connection, server as WebSocketServer } from 'websocket';
-
-import textToSpeech, { protos as ttsProtos } from '@google-cloud/text-to-speech';
 
 import twilio, { twiml } from 'twilio';
 import 'dotenv/config';
-import { CallListInstanceCreateOptions } from 'twilio/lib/rest/api/v2010/account/call';
 
 import { ENDPOINT } from './constants';
 import TranscriptionService from './transcription-service';
+import { CallListInstanceCreateOptions } from 'twilio/lib/rest/api/v2010/account/call';
 
 const { VoiceResponse } = twiml;
 
@@ -36,6 +31,10 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
+app.get('/', (req, res) => {
+  res.send('Hello wold!');
+});
+
 app.post('/twiml', (req, res) => {
   const filePath = path.join(__dirname, '../public/twiml', 'stream.xml');
   const stat = fs.statSync(filePath);
@@ -49,23 +48,52 @@ app.post('/twiml', (req, res) => {
 const httpServer = http.createServer(app);
 const wsServer = new WebSocketServer({ httpServer, autoAcceptConnections: true });
 
+interface Message {
+  type: string;
+  utf8Data: string;
+}
+
+interface Data {
+  event: string;
+  sequenceNumber: string;
+  media: {
+    track: string;
+    chunk: string;
+    timestamp: string;
+    payload: string;
+  };
+  streamSid: string;
+}
+
 wsServer.on('connect', (connection: connection) => {
   log('Connected!');
   new MediaStreamHandler(connection);
 });
 
 class MediaStreamHandler {
+  transcription: string;
+  metaData: null;
+  trackHandlers: any;
+  connection: connection;
+  streamSid: string;
+
   constructor(connection: connection) {
+    this.connection = connection;
     this.transcription = '';
     this.metaData = null;
     this.trackHandlers = {};
+    this.streamSid = '';
     connection.on('message', this.processMessage.bind(this));
     connection.on('close', this.close.bind(this));
   }
 
-  processMessage(message) {
+  send(message: string) {
+    this.connection.sendUTF(message);
+  }
+
+  processMessage(message: Message) {
     if (message.type === 'utf8') {
-      const data = JSON.parse(message.utf8Data);
+      const data: Data = JSON.parse(message.utf8Data);
       if (data.event === 'start') {
         this.metaData = data.start;
       }
@@ -74,12 +102,16 @@ class MediaStreamHandler {
       }
 
       const { track } = data.media;
-
       if (this.trackHandlers[track] === undefined) {
         const service = new TranscriptionService();
         service.on('transcription', (transcription) => {
           log(`Transcription (${track}): ${transcription}`);
-          if (transcription?.includes('こんにちは')) {
+          if (transcription?.includes('お願い')) {
+            const buffer = fs.readFileSync(path.join(__dirname, '../public/mp3', 'hoge.wav'));
+            const payload = new Buffer(buffer).toString('base64');
+            this.streamSid = data.streamSid;
+            const message = { event: 'media', media: { payload }, streamSid: this.streamSid };
+            this.send(JSON.stringify(message));
             axios.get(ENDPOINT.onCirculator);
           }
         });
@@ -102,72 +134,21 @@ class MediaStreamHandler {
   }
 }
 
-// app.get('/', (req, res) => {
-//   res.send('Hello wold!');
-// });
-
-// app.post('/twiml/*.xml', (req, res) => {
-//   const filename = req.path;
-//   console.log(filename);
-//   res.contentType('application/xml');
-//   res.sendFile(path.join(__dirname, '../public', filename));
-// });
-
-// app.get('/outgoing', async (req, res) => {
-//   const callOption: CallListInstanceCreateOptions = {
-//     url: `${baseUrl}/twiml/test.xml`,
-//     from: '+15107571562',
-//     to: '+818036686519',
-//   };
-//   try {
-//     const call = await twilioClient.calls.create(callOption);
-//     console.log(call);
-//     res.send('Hello');
-//   } catch (error) {
-//     console.log(error);
-//   }
-// });
-
-// const recognizeSpeech = async () => {
-//   const speechClient = new speech.SpeechClient();
-//   const audio = {};
-//   const request = {};
-//   const [response] = await speechClient.recognize(request);
-//   const transcription = response.results
-//     ?.map((result) => result.alternatives[0].transcript)
-//     .join('\n');
-
-//   return transcription;
-// };
-
-// app.post('/incoming', async (req, res) => {
-//   try {
-//     const ttsClient = new textToSpeech.TextToSpeechClient();
-//     const text = 'お電話ありがとうございます';
-//     const request: ttsProtos.google.cloud.texttospeech.v1.ISynthesizeSpeechRequest = {
-//       input: { text },
-//       voice: { languageCode: 'ja-JP', ssmlGender: 'FEMALE' },
-//       audioConfig: { audioEncoding: 'MP3' },
-//     };
-
-//     const [response] = await ttsClient.synthesizeSpeech(request);
-//     const outputFileName = req.body.CallSid + '.mp3';
-
-//     const writeFile = util.promisify(fs.writeFile);
-//     await writeFile(`public/mp3/${outputFileName}`, response.audioContent as string, 'binary');
-
-//     const twiml = new VoiceResponse();
-//     twiml.say({ language: 'ja-JP', voice: 'Polly.Mizuki' }, 'テストです');
-//     twiml.play(`${baseUrl}/mp3/${outputFileName}`);
-
-//     await axios.get(ENDPOINT.onCirculator);
-
-//     res.writeHead(200, { 'Content-Type': 'text/xml' });
-//     res.end(twiml.toString());
-//   } catch (error) {
-//     console.log(error);
-//   }
-// });
+app.get('/outgoing', async (req, res) => {
+  const callOption: CallListInstanceCreateOptions = {
+    url: `${baseUrl}/twiml/test.xml`,
+    from: '+15107571562',
+    to: '+818036686519',
+  };
+  18;
+  try {
+    const call = await twilioClient.calls.create(callOption);
+    console.log(call);
+    res.send('Hello');
+  } catch (error) {
+    console.log(error);
+  }
+});
 
 const PORT = process.env.PORT || 8080;
 
