@@ -6,6 +6,8 @@ const {
   BASE_URL: baseUrl,
   TWILIO_ACCOUNT_SID: accountSid,
   TWILIO_AUTH_TOKEN: authToken,
+  FROM_TEL_NUMBER: fromTelNumber,
+  TO_TEL_NUMBER: toTelNumber,
 } = process.env;
 
 const router = express.Router();
@@ -14,8 +16,8 @@ router.get('/outgoing', async (req, res) => {
   const twilioClient = twilio(accountSid, authToken);
   const callOption: CallListInstanceCreateOptions = {
     url: `${baseUrl}/twiml/stream.xml`,
-    from: '+15107571562',
-    to: '+818036686519',
+    from: fromTelNumber || '',
+    to: toTelNumber || '',
   };
 
   try {
